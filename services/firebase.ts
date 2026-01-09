@@ -1,5 +1,5 @@
-import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged, User } from "firebase/auth";
+import firebase from "firebase/compat/app";
+import "firebase/compat/auth";
 
 // Helper super seguro para ler variáveis sem quebrar o build
 const getEnv = (key: string, defaultValue: string) => {
@@ -42,15 +42,17 @@ const firebaseConfig = {
   appId: getEnv("FIREBASE_APP_ID", "1:123456789:web:abcdef")
 };
 
-let auth: any = null;
-let googleProvider: GoogleAuthProvider | null = null;
+let auth: firebase.auth.Auth | null = null;
+let googleProvider: firebase.auth.GoogleAuthProvider | null = null;
 
 // Inicialização segura - se falhar, cai para o modo demo em vez de travar o app
 if (!isDemoMode) {
   try {
-    const app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    googleProvider = new GoogleAuthProvider();
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    auth = firebase.auth();
+    googleProvider = new firebase.auth.GoogleAuthProvider();
   } catch (error) {
     console.warn("⚠️ Falha ao inicializar Firebase real. Entrando em modo DEMO Offline.", error);
     isDemoMode = true;
@@ -61,18 +63,18 @@ if (!isDemoMode) {
 }
 
 // --- MOCK AUTH ---
-const mockUser = {
+const mockUser: any = {
   uid: "demo-user-123",
   displayName: "Viajante Demo",
   email: "demo@viaja.ai",
   photoURL: null,
   emailVerified: true
-} as unknown as User;
+};
 
-type AuthCallback = (user: User | null) => void;
+type AuthCallback = (user: any | null) => void;
 const mockListeners: AuthCallback[] = [];
 
-const notifyMockListeners = (user: User | null) => {
+const notifyMockListeners = (user: any | null) => {
   mockListeners.forEach(cb => cb(user));
   if (user) localStorage.setItem('demo_auth_session', 'true');
   else localStorage.removeItem('demo_auth_session');
@@ -86,7 +88,7 @@ export const signInWithGoogle = async () => {
   }
 
   try {
-    await signInWithPopup(auth, googleProvider!);
+    await auth.signInWithPopup(googleProvider!);
   } catch (error: any) {
     if (error.code === 'auth/cancelled-popup-request') return;
     if (error.code === 'auth/api-key-not-valid' || error.code === 'auth/configuration-not-found') {
@@ -105,13 +107,13 @@ export const logout = async () => {
     return;
   }
   try {
-    await firebaseSignOut(auth);
+    await auth.signOut();
   } catch (error) {
     console.error("Logout Error:", error);
   }
 };
 
-export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
+export const subscribeToAuthChanges = (callback: (user: any | null) => void) => {
   // Se estivermos em modo demo OU se a inicialização do auth falhou (auth é null)
   if (isDemoMode || !auth) {
     mockListeners.push(callback);
@@ -128,5 +130,5 @@ export const subscribeToAuthChanges = (callback: (user: User | null) => void) =>
   }
   
   // Se auth existe, usa o Firebase real
-  return onAuthStateChanged(auth, callback);
+  return auth.onAuthStateChanged(callback);
 };

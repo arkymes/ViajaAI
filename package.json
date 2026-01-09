@@ -12,7 +12,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "9.0.1",
-    "@google/genai": "0.1.1",
+    "@google/genai": "latest",
     "lucide-react": "0.294.0",
     "firebase": "10.8.0"
   },

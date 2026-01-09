@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, MapPin, MessageSquareText, Trash2, Clock, LogOut, LogIn, UserCircle, Map as MapIcon, List, Check, DollarSign, ChevronRight, Menu, X } from 'lucide-react';
+import { Plus, Calendar, MapPin, MessageCircle, Trash2, Clock, LogOut, LogIn, UserCircle, Map as MapIcon, List, Check, DollarSign, ChevronRight, Menu, X } from 'lucide-react';
 import { Trip, ItineraryDay, Activity, ActivityType } from './types';
 import { ActivityIcon } from './components/ActivityIcon';
 import { ChatPanel } from './components/ChatPanel';
@@ -467,7 +467,7 @@ const App: React.FC = () => {
                   : 'bg-white border border-slate-200 text-slate-700 hover:border-brand-300'
               }`}
             >
-              <MessageSquareText className={`w-4 h-4 ${isChatOpen ? 'text-white' : 'text-brand-500 group-hover:scale-110 transition-transform'}`} />
+              <MessageCircle className={`w-4 h-4 ${isChatOpen ? 'text-white' : 'text-brand-500 group-hover:scale-110 transition-transform'}`} />
               <span className="hidden sm:inline">Assistente IA</span>
             </button>
           </div>
