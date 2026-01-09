@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, MapPin, MessageCircle, Trash2, Clock, LogOut, LogIn, UserCircle, Map as MapIcon, List, Check, DollarSign, ChevronRight, Menu, X } from 'lucide-react';
+import { Plus, Calendar, MapPin, MessageCircle, Trash2, Clock, LogOut, LogIn, UserCircle, Map as MapIcon, List, Check, DollarSign, ChevronRight, Menu, X, Plane, Globe } from 'lucide-react';
 import { Trip, ItineraryDay, Activity, ActivityType } from './types';
 import { ActivityIcon } from './components/ActivityIcon';
 import { ChatPanel } from './components/ChatPanel';
@@ -9,37 +9,6 @@ import { TripMap } from './components/TripMap';
 import { LocationPickerModal } from './components/LocationPickerModal';
 import { subscribeToAuthChanges, logout, signInWithGoogle } from './services/firebase';
 import { User } from 'firebase/auth';
-
-// --- MOCK DATA FOR INITIALIZATION ---
-const INITIAL_TRIP: Trip = {
-  id: 'trip-1',
-  title: 'Eurotrip de Verão',
-  destination: 'Paris, França',
-  startDate: '2024-07-15',
-  endDate: '2024-07-18',
-  coverImage: 'https://picsum.photos/1200/400?random=1',
-  lat: 48.8566,
-  lng: 2.3522,
-  days: [
-    {
-      id: 'day-1',
-      date: '2024-07-15',
-      activities: [
-        { id: 'a1', time: '10:00', title: 'Chegada e Check-in', type: ActivityType.LODGING, location: 'Hotel Le Meurice', lat: 48.8656, lng: 2.3283, cost: 0 },
-        { id: 'a2', time: '14:00', title: 'Torre Eiffel', type: ActivityType.SIGHTSEEING, notes: 'Comprar ingressos online', lat: 48.8584, lng: 2.2945, cost: 250.00 },
-        { id: 'a3', time: '19:30', title: 'Jantar no Le Jules Verne', type: ActivityType.FOOD, lat: 48.8584, lng: 2.2945, cost: 1200.00 }
-      ]
-    },
-    {
-      id: 'day-2',
-      date: '2024-07-16',
-      activities: [
-        { id: 'a4', time: '09:00', title: 'Museu do Louvre', type: ActivityType.SIGHTSEEING, notes: 'Ver a Mona Lisa cedo', lat: 48.8606, lng: 2.3376, cost: 110.00 },
-        { id: 'a5', time: '13:00', title: 'Almoço no Jardim das Tulherias', type: ActivityType.FOOD, lat: 48.8635, lng: 2.3275, cost: 80.00 }
-      ]
-    }
-  ]
-};
 
 // Helper to validate trip structure matches expected types to prevent crashes
 const isValidTrip = (trip: any): trip is Trip => {
@@ -56,8 +25,10 @@ const App: React.FC = () => {
   const [isGuestMode, setIsGuestMode] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   
-  const [trips, setTrips] = useState<Trip[]>([INITIAL_TRIP]);
-  const [selectedTripId, setSelectedTripId] = useState<string>(INITIAL_TRIP.id);
+  // Initialize empty, load from local storage
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<{dayId: string, activity?: Activity} | null>(null);
   const [isNewTripModalOpen, setIsNewTripModalOpen] = useState(false);
@@ -72,7 +43,7 @@ const App: React.FC = () => {
   const [tempTripLocation, setTempTripLocation] = useState<{lat: number, lng: number} | null>(null);
 
   // Global "Last Used" Center for Map
-  const [lastMapCenter, setLastMapCenter] = useState<{lat: number, lng: number}>({ lat: 48.8566, lng: 2.3522 });
+  const [lastMapCenter, setLastMapCenter] = useState<{lat: number, lng: number}>({ lat: -23.5505, lng: -46.6333 }); // Default Sao Paulo
 
   // Auth Listener
   useEffect(() => {
@@ -97,13 +68,11 @@ const App: React.FC = () => {
            
            if (validTrips.length > 0) {
              setTrips(validTrips);
+             setSelectedTripId(validTrips[0].id);
              // If loaded trips, update lastMapCenter to the first trip's location if available
              if (validTrips[0].lat) {
                 setLastMapCenter({ lat: validTrips[0].lat!, lng: validTrips[0].lng! });
              }
-           } else {
-             console.warn("Dados salvos inválidos encontrados. Resetando para estado inicial.");
-             localStorage.removeItem('viajaai_trips');
            }
         }
       } catch (e) {
@@ -118,18 +87,21 @@ const App: React.FC = () => {
     // Persist trips whenever they change
     if (trips.length > 0) {
       localStorage.setItem('viajaai_trips', JSON.stringify(trips));
+    } else {
+      // If user deletes all trips, clear storage
+      localStorage.removeItem('viajaai_trips');
     }
   }, [trips]);
 
   // Derived state with Safe Fallback
-  const selectedTrip = trips.find(t => t.id === selectedTripId) || trips[0] || INITIAL_TRIP;
+  const selectedTrip = trips.find(t => t.id === selectedTripId) || trips[0];
 
   // Update map center when trip changes, if trip has coordinates
   useEffect(() => {
     if (selectedTrip?.lat && selectedTrip?.lng) {
       setLastMapCenter({ lat: selectedTrip.lat, lng: selectedTrip.lng });
     }
-  }, [selectedTripId]);
+  }, [selectedTripId, selectedTrip]);
 
   // --- COST CALCULATION ---
   const calculateTotalCost = () => {
@@ -298,21 +270,68 @@ const App: React.FC = () => {
     return <LoginScreen onGuestLogin={() => setIsGuestMode(true)} />;
   }
 
-  // Safety check if trips state is empty (should not happen due to initialization logic, but good for TS)
+  // --- EMPTY STATE (NO TRIPS) ---
   if (!selectedTrip) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 text-center p-6">
-        <div className="text-slate-500 mb-4">Parece que houve um erro ao carregar seus dados.</div>
-        <button 
-          onClick={() => { localStorage.removeItem('viajaai_trips'); window.location.reload(); }}
-          className="bg-brand-600 text-white px-4 py-2 rounded-lg"
-        >
-          Resetar Aplicação
-        </button>
+      <div className="h-screen w-full flex flex-col bg-slate-50 overflow-hidden relative">
+        {/* Simple Header */}
+        <div className="p-6 border-b border-slate-100 bg-white flex justify-between items-center z-10">
+           <h1 className="text-xl font-bold bg-gradient-to-r from-brand-700 to-brand-500 bg-clip-text text-transparent">ViajaAI</h1>
+           {user && (
+             <button onClick={() => logout()} className="text-sm text-slate-500 hover:text-red-600 flex items-center gap-2">
+               <LogOut className="w-4 h-4" /> Sair
+             </button>
+           )}
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center z-10 relative">
+          <div className="w-24 h-24 bg-brand-100 rounded-full flex items-center justify-center mb-6 animate-pulse">
+            <Globe className="w-12 h-12 text-brand-600" />
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4">Sua próxima aventura começa aqui</h2>
+          <p className="text-slate-500 max-w-md mb-8 text-lg">
+            Você ainda não tem nenhuma viagem planejada. Crie seu primeiro roteiro e deixe a IA te ajudar a explorar o mundo.
+          </p>
+          <button 
+            onClick={() => {
+              setTempTripLocation(null);
+              setIsNewTripModalOpen(true);
+            }}
+            className="px-8 py-4 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-brand-500/30 transition-all flex items-center gap-3 transform hover:scale-105"
+          >
+            <Plus className="w-6 h-6" />
+            Criar Nova Viagem
+          </button>
+        </div>
+
+        {/* Decorative Background Elements */}
+        <div className="absolute top-1/4 left-10 w-64 h-64 bg-brand-200/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-10 right-10 w-80 h-80 bg-indigo-200/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        {/* Modal Logic for Empty State */}
+        <NewTripModal 
+          isOpen={isNewTripModalOpen}
+          onClose={() => setIsNewTripModalOpen(false)}
+          onSave={handleCreateTrip}
+          onOpenMapPicker={() => {
+            setLocationPickerMode('trip_creation');
+            setIsLocationPickerOpen(true);
+          }}
+          selectedLocation={tempTripLocation}
+        />
+        <LocationPickerModal
+          isOpen={isLocationPickerOpen}
+          onClose={() => setIsLocationPickerOpen(false)}
+          initialLat={undefined}
+          initialLng={undefined}
+          defaultCenter={lastMapCenter}
+          onSelect={handleLocationSelected}
+        />
       </div>
     );
   }
 
+  // --- MAIN APP RENDER ---
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       
